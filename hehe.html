@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Google Sheets Editor Demo</title>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    button { padding: 10px 18px; border-radius: 6px; cursor: pointer; }
+    #content { margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h2>📝 Demo chỉnh sửa Google Sheet bằng JavaScript</h2>
+  <p>Nhấn <b>Đăng nhập Google</b> để cấp quyền, sau đó nhập giá trị ghi vào Google Sheet.</p>
+
+  <button id="authorize_button">🔑 Đăng nhập Google</button>
+  <button id="signout_button" style="display:none;">🚪 Đăng xuất</button>
+
+  <div id="content"></div>
+
+  <script>
+    // 👉 Thay các giá trị sau bằng của bạn
+    const CLIENT_ID = "PASTE_CLIENT_ID_HERE.apps.googleusercontent.com";
+    const API_KEY = "PASTE_API_KEY_HERE";
+    const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
+    const SPREADSHEET_ID = "PASTE_SHEET_ID_HERE"; // lấy từ URL sheet
+    const RANGE = "Sheet1!A1";
+
+    const authorizeButton = document.getElementById("authorize_button");
+    const signoutButton = document.getElementById("signout_button");
+    const content = document.getElementById("content");
+
+    // 1️⃣ Load thư viện gapi
+    function handleClientLoad() {
+      gapi.load("client:auth2", initClient);
+    }
+
+    // 2️⃣ Khởi tạo Google API Client
+    async function initClient() {
+      await gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+        scope: SCOPES
+      });
+
+      const auth = gapi.auth2.getAuthInstance();
+      auth.isSignedIn.listen(updateSigninStatus);
+      updateSigninStatus(auth.isSignedIn.get());
+
+      authorizeButton.onclick = () => auth.signIn();
+      signoutButton.onclick = () => auth.signOut();
+    }
+
+    // 3️⃣ Khi trạng thái đăng nhập thay đổi
+    function updateSigninStatus(isSignedIn) {
+      if (isSignedIn) {
+        authorizeButton.style.display = "none";
+        signoutButton.style.display = "inline-block";
+        writeSheet();
+      } else {
+        authorizeButton.style.display = "inline-block";
+        signoutButton.style.display = "none";
+      }
+    }
+
+    // 4️⃣ Ghi dữ liệu vào Google Sheet
+    async function writeSheet() {
+      const value = prompt("Nhập nội dung bạn muốn ghi vào ô A1:", "Hello Google Sheets!");
+      if (!value) return;
+
+      try {
+        const response = await gapi.client.sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: RANGE,
+          valueInputOption: "RAW",
+          resource: { values: [[value]] }
+        });
+
+        content.innerHTML = `
+          ✅ <b>Đã ghi thành công!</b><br>
+          <b>Sheet ID:</b> ${SPREADSHEET_ID}<br>
+          <b>Ô:</b> ${RANGE}<br>
+          <b>Giá trị:</b> ${value}
+        `;
+      } catch (err) {
+        content.innerHTML = `<span style="color:red">❌ Lỗi: ${err.message}</span>`;
+      }
+    }
+
+    // Gọi khi trang load
+    window.onload = handleClientLoad;
+  </script>
+</body>
+</html>
